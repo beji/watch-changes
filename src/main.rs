@@ -3,17 +3,19 @@ use std::{
     io::{self, BufRead},
     path::Path,
     process::Command,
-    thread,
+    sync::mpsc::channel,
     time::Duration,
 };
 
 use console::Term;
-use inotify::{Inotify, WatchMask};
+use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 
 fn main() {
     let stdin = io::stdin();
     let mut buffer = String::new();
     let term = Term::stdout();
+    // The channel will get the events
+    let (sender, receiver) = channel();
 
     let mut args = env::args();
     // Move past the command
@@ -31,8 +33,8 @@ fn main() {
                 command_args.push(cmd_arg);
             }
 
-            let mut inotify =
-                Inotify::init().expect("Failed to initialize inotify. Is it actually available?");
+            // The watcher will deliver debounced events once every second, should be plenty
+            let mut watcher = watcher(sender, Duration::from_secs(1)).unwrap();
 
             loop {
                 // Read in all lines from stdin
@@ -43,7 +45,6 @@ fn main() {
                             break;
                         }
                     }
-
                     _ => panic!("Failed to read from STDIN"),
                 }
             }
@@ -52,8 +53,8 @@ fn main() {
                 let path = Path::new(file);
                 // The buffer will contain a final new line, skip that
                 if path.exists() {
-                    inotify
-                        .add_watch(path.to_str().unwrap(), WatchMask::MODIFY)
+                    watcher
+                        .watch(path.to_str().unwrap(), RecursiveMode::NonRecursive)
                         .expect(
                             format!("Failed to set up a file watch for {}", path.display())
                                 .as_str(),
@@ -61,20 +62,32 @@ fn main() {
                 }
             });
 
-            let mut buffer = [0; 1024];
-
             loop {
-                let _events = inotify
-                    .read_events_blocking(&mut buffer)
-                    .expect("Error while reading events");
-
-                term.clear_screen()
-                    .expect("Failed to clear the terminal screen");
-                Command::new(&command)
-                    .args(&command_args)
-                    .spawn()
-                    .expect("Failed to execute process");
-                thread::sleep(Duration::from_millis(100));
+                match receiver.recv() {
+                    Ok(event) => match event {
+                        // Watch the new path, stop watching the old
+                        DebouncedEvent::Rename(old, new) => {
+                            watcher.unwatch(old).unwrap();
+                            watcher.watch(new, RecursiveMode::NonRecursive).unwrap();
+                        }
+                        // Path no longer exists, no need to watch anymore
+                        DebouncedEvent::Remove(path) => {
+                            watcher.unwatch(path).unwrap();
+                        }
+                        // File was written, do X
+                        DebouncedEvent::Write(_path) => {
+                            term.clear_screen()
+                                .expect("Failed to clear the terminal screen");
+                            Command::new(&command)
+                                .args(&command_args)
+                                .spawn()
+                                .expect("Failed to execute process");
+                        }
+                        // Ignore all other events for now
+                        _ => (),
+                    },
+                    Err(e) => println!("watch error: {:?}", e),
+                }
             }
         }
     }

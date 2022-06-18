@@ -1,6 +1,6 @@
 # watch-changes
 
-_Very_ basic file watcher thingy, based on [inotify](https://docs.rs/inotify/latest/inotify/index.html), meaning it will only work on linux.
+_Very_ basic file watcher thingy, based on [notify](https://docs.rs/notify/latest/notify/index.html).
 
 ## How to use this
 
