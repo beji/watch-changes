@@ -69,10 +69,22 @@ fn main() {
                         DebouncedEvent::Rename(old, new) => {
                             watcher.unwatch(old).unwrap();
                             watcher.watch(new, RecursiveMode::NonRecursive).unwrap();
+                            term.clear_screen()
+                                .expect("Failed to clear the terminal screen");
+                            Command::new(&command)
+                                .args(&command_args)
+                                .spawn()
+                                .expect("Failed to execute process");
                         }
                         // Path no longer exists, no need to watch anymore
                         DebouncedEvent::Remove(path) => {
                             watcher.unwatch(path).unwrap();
+                            term.clear_screen()
+                                .expect("Failed to clear the terminal screen");
+                            Command::new(&command)
+                                .args(&command_args)
+                                .spawn()
+                                .expect("Failed to execute process");
                         }
                         // File was written, do X
                         DebouncedEvent::Write(_path) => {
