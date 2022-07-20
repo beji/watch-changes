@@ -31,7 +31,7 @@ fn main() {
         Some(command) => {
             eprintln!("{}", ENTER_HINT);
             let mut command_args: Vec<String> = Vec::new();
-            while let Some(cmd_arg) = args.next() {
+            for cmd_arg in args {
                 command_args.push(cmd_arg);
             }
 
@@ -67,7 +67,7 @@ fn main() {
                     // the line write offsets will go out of sync with the terminal
                     // and this needs to be fixed per line
                     String::from_utf8_lossy(&output.stderr)
-                        .split("\n")
+                        .split('\n')
                         .for_each(|line| {
                             term.write_line(line).unwrap();
                             // This seems to fix the line offsets screwing up
@@ -88,23 +88,23 @@ fn main() {
                 }
             });
 
-            let loop_command_sender = command_sender.clone();
+            // The last one can just take the original
+            let loop_command_sender = command_sender;
             let loopt = thread::spawn(move || {
                 let command_sender = loop_command_sender;
                 let (sender, receiver) = channel();
                 // The watcher will deliver debounced events once every second, should be plenty
                 let mut watcher = watcher(sender, Duration::from_secs(1)).unwrap();
 
-                buffer.split("\n").for_each(|file| {
+                buffer.split('\n').for_each(|file| {
                     let path = Path::new(file);
                     // The buffer will contain a final new line, skip that
                     if path.exists() {
                         watcher
                             .watch(path.to_str().unwrap(), RecursiveMode::NonRecursive)
-                            .expect(
-                                format!("Failed to set up a file watch for {}", path.display())
-                                    .as_str(),
-                            );
+                            .unwrap_or_else(|_| {
+                                panic!("Failed to set up a file watch for {}", path.display())
+                            });
                     }
                 });
 
