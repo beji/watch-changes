@@ -6,15 +6,21 @@
 
   outputs = { self, flake-utils, devshell, fenix, nixpkgs }:
     flake-utils.lib.eachDefaultSystem (system: {
-      devShell =
-        let pkgs = import nixpkgs {
+      defaultPackage = let pkgs = import nixpkgs { inherit system; };
+      in pkgs.rustPlatform.buildRustPackage {
+        pname = "watch-changes";
+        version = "0.3.0";
+        src = ./.;
+        cargoLock.lockFile = ./Cargo.lock;
+      };
+      devShell = let
+        pkgs = import nixpkgs {
           inherit system;
 
           overlays = [ devshell.overlay ];
         };
-        in
-        pkgs.devshell.mkShell {
-          imports = [ (pkgs.devshell.importTOML ./devshell.toml) ];
-        };
+      in pkgs.devshell.mkShell {
+        imports = [ (pkgs.devshell.importTOML ./devshell.toml) ];
+      };
     });
 }
