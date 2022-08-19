@@ -113,13 +113,17 @@ fn main() {
                         Ok(event) => match event {
                             // Watch the new path, stop watching the old
                             DebouncedEvent::Rename(old, new) => {
-                                watcher.unwatch(old).unwrap();
+                                // This might fail as the watch was automatically cleaned up
+                                // This is fine for us, nothing to do here
+                                let _ = watcher.unwatch(old);
                                 watcher.watch(new, RecursiveMode::NonRecursive).unwrap();
                                 command_sender.send(()).unwrap();
                             }
                             // Path no longer exists, no need to watch anymore
                             DebouncedEvent::Remove(path) => {
-                                watcher.unwatch(path).unwrap();
+                                // This might fail as the watch was automatically cleaned up
+                                // This is fine for us, nothing to do here
+                                let _ = watcher.unwatch(path);
                                 command_sender.send(()).unwrap();
                             }
                             // File was written, do X
