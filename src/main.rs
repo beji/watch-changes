@@ -5,11 +5,10 @@ use std::{
     process::Command,
     sync::mpsc::channel,
     thread,
-    time::Duration,
 };
 
 use console::{Key, Term};
-use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 
 static ENTER_HINT: &str = "You can trigger the command manually by pushing the <ENTER> key";
 
@@ -93,15 +92,19 @@ fn main() {
             let loopt = thread::spawn(move || {
                 let command_sender = loop_command_sender;
                 let (sender, receiver) = channel();
-                // The watcher will deliver debounced events once every second, should be plenty
-                let mut watcher = watcher(sender, Duration::from_secs(1)).unwrap();
+
+                let mut watcher = RecommendedWatcher::new(
+                    move |res| sender.send(res).unwrap(),
+                    Config::default(),
+                )
+                .unwrap();
 
                 buffer.split('\n').for_each(|file| {
                     let path = Path::new(file);
                     // The buffer will contain a final new line, skip that
                     if path.exists() {
                         watcher
-                            .watch(path.to_str().unwrap(), RecursiveMode::NonRecursive)
+                            .watch(path, RecursiveMode::NonRecursive)
                             .unwrap_or_else(|_| {
                                 panic!("Failed to set up a file watch for {}", path.display())
                             });
@@ -110,29 +113,33 @@ fn main() {
 
                 loop {
                     match receiver.recv() {
-                        Ok(event) => match event {
-                            // Watch the new path, stop watching the old
-                            DebouncedEvent::Rename(old, new) => {
-                                // This might fail as the watch was automatically cleaned up
-                                // This is fine for us, nothing to do here
-                                let _ = watcher.unwatch(old);
-                                watcher.watch(new, RecursiveMode::NonRecursive).unwrap();
-                                command_sender.send(()).unwrap();
-                            }
-                            // Path no longer exists, no need to watch anymore
-                            DebouncedEvent::Remove(path) => {
-                                // This might fail as the watch was automatically cleaned up
-                                // This is fine for us, nothing to do here
-                                let _ = watcher.unwatch(path);
-                                command_sender.send(()).unwrap();
-                            }
-                            // File was written, do X
-                            DebouncedEvent::Write(_path) => {
-                                command_sender.send(()).unwrap();
-                            }
-                            // Ignore all other events for now
-                            _ => (),
-                        },
+                        Ok(_) => {
+                            // Just go for now
+                            command_sender.send(()).unwrap();
+                        }
+                        // Ok(event) => match event {
+                        //     // Watch the new path, stop watching the old
+                        //     Event::Rename(old, new) => {
+                        //         // This might fail as the watch was automatically cleaned up
+                        //         // This is fine for us, nothing to do here
+                        //         let _ = watcher.unwatch(old);
+                        //         watcher.watch(new, RecursiveMode::NonRecursive).unwrap();
+                        //         command_sender.send(()).unwrap();
+                        //     }
+                        //     // Path no longer exists, no need to watch anymore
+                        //     Event::Remove(path) => {
+                        //         // This might fail as the watch was automatically cleaned up
+                        //         // This is fine for us, nothing to do here
+                        //         let _ = watcher.unwatch(path);
+                        //         command_sender.send(()).unwrap();
+                        //     }
+                        //     // File was written, do X
+                        //     Event::Write(_path) => {
+                        //         command_sender.send(()).unwrap();
+                        //     }
+                        //     // Ignore all other events for now
+                        //     _ => (),
+                        // },
                         Err(e) => println!("watch error: {:?}", e),
                     }
                 }
