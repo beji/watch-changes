@@ -1,5 +1,4 @@
 # https://numtide.github.io/devshell
-imports = ["language.rust"]
 
 [devshell]
 packages = [
@@ -9,3 +8,8 @@ packages = [
 [[commands]]
 package = "devshell.cli"
 help = "Per project developer environments"
+
+[[commands]]
+package = "rust-bin.stable.latest.default"
+name = "cargo"
+help = "control the rust environment, start builds etc."
