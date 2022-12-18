@@ -1,6 +1,6 @@
 pipeline:
   build:
-    image: rust:1.65
+    image: rust:1.66
     commands:
       - cargo test
       - cargo build
