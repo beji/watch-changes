@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 notify = "5.1.0"
-console = { version = "0.15.5", features = [] }
+console = { version = "0.15.7", features = [] }
