@@ -6,5 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-notify = "5.2.0"
+notify = "6.0.0"
 console = { version = "0.15.7", features = [] }
